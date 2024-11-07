@@ -12,6 +12,7 @@ RTMB is a lightweight, high-performance, real-time message broker written in Go.
   - [Client Interaction](#client-interaction)
     - [Available Commands](#available-commands)
     - [Command Reference](#command-reference)
+      - [INFO](#info)
       - [CONNECT](#connect)
       - [PING / PONG](#ping--pong)
       - [SUB](#sub)
@@ -57,7 +58,7 @@ To build and run RTMB, you need to have Go installed (version 1.16 or later is r
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/rtmb.git
+   git clone https://github.com/islamghany/rtmb.git
    cd rtmb
    ```
 
@@ -89,6 +90,7 @@ Clients can connect to the RTMB server using TCP and communicate using simple te
 
 #### Available Commands
 
+- **INFO**: Provides information about the server.
 - **CONNECT**: Establish a connection with the server.
 - **PING** / **PONG**: Heartbeat mechanism to keep the connection alive.
 - **SUB**: Subscribe to a subject to receive messages.
@@ -98,6 +100,16 @@ Clients can connect to the RTMB server using TCP and communicate using simple te
 #### Command Reference
 
 Below is a detailed description of each command, including its syntax and usage.
+
+##### INFO
+
+When the client connects to the server, the server may send an `INFO` message containing information about the server.
+
+- **Example:**
+
+  ```
+  INFO {"server_id":"rtmb-1.0","version":"1.0.0","proto":"tcp","host":"localhost","port":4222,"auth_required":false,"ssl_required":false,"ssl_verify":false,"max_payload":1048576}
+  ```
 
 ##### CONNECT
 
@@ -122,7 +134,7 @@ Establishes a connection with the server.
 
 - **Server Response:**
 
-  - The server may send an `INFO` message upon successful connection.
+  - no response is sent upon successful connection.
 
 ##### PING / PONG
 
@@ -138,8 +150,9 @@ Heartbeat mechanism to keep the connection alive.
 
   - **Description:**
 
-    - The client sends a `PING` to the server to check if the connection is still alive.
-    - The server should respond with a `PONG`.
+    - PING/PONG implement a simple keep-alive mechanism to ensure the client is still connected it will send a PING to the client every amount of time and expect a PONG in return within a certain time frame.
+
+    - If the client does not respond with PONG, the connection will be closed
 
 - **PONG**
 
@@ -151,8 +164,8 @@ Heartbeat mechanism to keep the connection alive.
 
   - **Description:**
 
-    - Sent by either the client or the server in response to a `PING`.
-    - Keeps the connection active.
+    - Sent by the client in response to a PING command from the server.
+    - Indicates that the client is still connected and responsive.
 
 - **Example:**
 
@@ -160,7 +173,7 @@ Heartbeat mechanism to keep the connection alive.
   PING
   ```
 
-  - Server Response:
+  - Client Response:
 
     ```
     PONG
@@ -176,7 +189,7 @@ Subscribe to a subject to receive messages.
   SUB <subject> <sid>
   ```
 
-  - `<subject>`: The subject to subscribe to (e.g., `foo.bar`).
+  - `<subject>`: The subject to subscribe to (e.g., `foo.bar`, `qux.*`, `baz.>`, foo.\*.bar`).
   - `<sid>`: A unique subscription identifier (string).
 
 - **Description:**
@@ -192,7 +205,17 @@ Subscribe to a subject to receive messages.
 
 - **Server Response:**
 
-  - The server does not send a response upon successful subscription.
+  - If the request is successful, the server responds with a `+OK` message upon successful subscription.
+
+    ```
+    +OK
+    ```
+
+  - If the subscription fails, the server responds with an error message. For example:
+
+    ```
+    -ERR 'SUB command: insufficient arguments'
+    ```
 
 ##### UNSUB
 
@@ -228,7 +251,17 @@ Unsubscribe from a subject.
 
 - **Server Response:**
 
-  - The server does not send a response upon successful unsubscription.
+  - If the request is successful, the server responds with a `+OK` message upon successful unsubscription.
+
+    ```
+    +OK
+    ```
+
+  - If the unsubscription fails, the server responds with an error message. For example:
+
+    ```
+    -ERR 'UNSUB command: subscription not found'
+    ```
 
 ##### PUB
 
@@ -262,7 +295,17 @@ Publish a message to a subject.
 
 - **Server Response:**
 
-  - The server does not send a response upon successful publication.
+  - If the request is successful, the server responds with a `+OK` message upon successful publication.
+
+    ```
+    +OK
+    ```
+
+  - If the publication fails, the server responds with an error message. For example:
+
+    ```
+    -ERR 'PUB command: insufficient arguments'
+    ```
 
 #### Notes on Subjects and Wildcards
 
@@ -345,7 +388,7 @@ Below is an example of how to use RTMB using `telnet`.
    PING
    ```
 
-   - Server responds:
+   - Client responds:
 
      ```
      PONG
