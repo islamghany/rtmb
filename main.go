@@ -104,6 +104,18 @@ func handleConnection(conn net.Conn, topicManager *topic.Topic, port string, ver
 		}
 	}()
 
+	// Handling the connection if it's a TLS connection
+	if _, ok := conn.(*tls.Conn); ok {
+		err := conn.(*tls.Conn).Handshake()
+		if err != nil {
+			log.Printf("TLS handshake failed: %v", err)
+			return
+		}
+
+		state := conn.(*tls.Conn).ConnectionState()
+		log.Printf("TLS connection established with %v using %v", state.PeerCertificates[0].Subject.CommonName, state.CipherSuite)
+	}
+
 	commander := commands.NewCommander(&commands.CommanderConfig{
 		Conn: conn, Topic: topicManager, Port: port,
 	})
