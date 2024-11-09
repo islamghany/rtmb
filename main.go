@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -88,10 +89,19 @@ func main() {
 }
 
 func handleConnection(conn net.Conn, topicManager *topic.Topic, port string, verbose bool) {
-
+	// Recover from panics to prevent the server from crashing
 	defer func() {
-		conn.Close()
-		fmt.Printf("Connection from %v closed\n", conn.RemoteAddr())
+		if recErr := recover(); recErr != nil {
+			trace := debug.Stack()
+			log.Printf("Recovered from panic: %v, trace: %s", recErr, trace)
+			conn.Write([]byte(fmt.Sprint("-ERR Server error: \r\n")))
+			if err := conn.Close(); err != nil {
+				log.Printf("Error closing connection: %v", err)
+			}
+		} else {
+			conn.Close()
+			fmt.Printf("Connection from %v closed\n", conn.RemoteAddr())
+		}
 	}()
 
 	commander := commands.NewCommander(&commands.CommanderConfig{
