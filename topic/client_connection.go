@@ -21,6 +21,7 @@ type ClientConnection struct {
 	mu        sync.Mutex
 	writeChan chan *Message // Channel for async message writing
 	done      chan struct{} // Channel to signal shutdown
+	closeOnce sync.Once     // Ensure Close is called only once
 }
 
 func NewClientConnection(id string, conn io.Writer) *ClientConnection {
@@ -36,6 +37,8 @@ func NewClientConnection(id string, conn io.Writer) *ClientConnection {
 	return client
 }
 
+// writeLoop is a goroutine that writes messages to the client connection in a monotonic way
+// it's only processing one message at a time, ensuring that messages are written in the order they were sent
 func (c *ClientConnection) writeLoop() {
 	for {
 		select {
@@ -89,6 +92,8 @@ func (c *ClientConnection) Send(subject string, payload []byte, sid string) erro
 	}
 
 	select {
+	case <-c.done:
+		return fmt.Errorf("client %s is closed", c.ID)
 	case c.writeChan <- msg:
 		return nil
 	case <-time.After(5 * time.Second):
@@ -106,6 +111,8 @@ func (c *ClientConnection) SendError(errMsg, sid string) error {
 	}
 
 	select {
+	case <-c.done:
+		return fmt.Errorf("client %s is closed", c.ID)
 	case c.writeChan <- msg:
 		return nil
 	case <-time.After(5 * time.Second):
@@ -115,11 +122,11 @@ func (c *ClientConnection) SendError(errMsg, sid string) error {
 
 // Close gracefully shuts down the client connection
 func (c *ClientConnection) Close() error {
-	// Signal writeLoop to exit
-	close(c.done)
-	// Close writeChan to stop receiving new messages
-	close(c.writeChan)
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.closeOnce.Do(func() {
+		// Signal writeLoop to exit
+		close(c.done)
+		// Close writeChan to stop receiving new messages
+		close(c.writeChan)
+	})
 	return nil
 }
